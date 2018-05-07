@@ -3,14 +3,12 @@ Created on May 5, 2017
 
 @author: anthony
 '''
-import urllib2
-import math
-import re
-from bs4 import BeautifulSoup
-from pprint import pprint
-from threading import Thread
+import math, requests, re
 from collections import deque
 from time import sleep
+from bs4 import BeautifulSoup
+from threading import Thread
+from urllib.request import quote
         
 class GoogleSearch:
     USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/ 58.0.3029.81 Safari/537.36"
@@ -30,13 +28,11 @@ class GoogleSearch:
         total = None;
         for i in range(pages) :
             start = i * GoogleSearch.RESULTS_PER_PAGE
-            opener = urllib2.build_opener()
-            opener.addheaders = GoogleSearch.DEFAULT_HEADERS
-            response = opener.open(GoogleSearch.SEARCH_URL + "?q="+ urllib2.quote(query) + ("" if start == 0 else ("&start=" + str(start))))
-            soup = BeautifulSoup(response.read(), "lxml")
-            response.close()
+            url = SEARCH_URL + "?q=" + quote(query) + "&hl=" + language + ("" if start == 0 else ("&start=" + str(start)))
+            response = requests.get(url, headers=DEFAULT_HEADERS)
+            soup = BeautifulSoup(response.content, "lxml")
             if total is None:
-                totalText = soup.select(GoogleSearch.TOTAL_SELECTOR)[0].children.next().encode('utf-8')
+                totalText = soup.select(TOTAL_SELECTOR)[0].getText()
                 total = long(re.sub("[', ]", "", re.search("(([0-9]+[', ])*[0-9]+)", totalText).group(1)))
             results = self.parseResults(soup.select(GoogleSearch.RESULT_SELECTOR))
             if len(searchResults) + len(results) > num_results:
@@ -78,6 +74,10 @@ class SearchResult:
         self.url = url
         self.__text = None
         self.__markup = None
+        self.headers = {
+            'User-Agent': "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/ 58.0.3029.81 Safari/537.36",
+            "Accept-Language": "en-US,en;q=0.5",
+        }
     
     def getText(self):
         if self.__text is None:
@@ -89,10 +89,8 @@ class SearchResult:
     
     def getMarkup(self):
         if self.__markup is None:
-            opener = urllib2.build_opener()
-            opener.addheaders = GoogleSearch.DEFAULT_HEADERS
-            response = opener.open(self.url);
-            self.__markup = response.read()
+            response = requests.get(self.url, headers=self.headers)
+            self.__markup = response.content
         return self.__markup
     
     def __str__(self):
